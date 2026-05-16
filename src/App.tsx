@@ -1,4 +1,5 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { ProtectedRoute } from "./auth/ProtectedRoute";
 import Signup from "./routes/signup";
 import Login from "./routes/login";
 import AdminLayout from "./routes/admin/layout";
@@ -15,7 +16,11 @@ export default function App() {
     { path: "/login", element: <Login /> },
     {
       path: "/admin",
-      element: <AdminLayout />,
+      element: (
+        <ProtectedRoute>
+          <AdminLayout />
+        </ProtectedRoute>
+      ),
       children: [
         { index: true, element: <AdminHome /> },
         { path: "agenda", element: <AdminAgenda /> },
