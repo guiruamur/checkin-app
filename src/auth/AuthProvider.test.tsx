@@ -1,6 +1,18 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import { vi } from "vitest";
 import { AuthProvider } from "./AuthProvider";
 import { useAuth } from "./useAuth";
+
+vi.mock("../lib/supabase", () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+      onAuthStateChange: vi.fn().mockReturnValue({
+        data: { subscription: { unsubscribe: vi.fn() } },
+      }),
+    },
+  },
+}));
 
 function Probe() {
   const { user, loading } = useAuth();
