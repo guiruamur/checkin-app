@@ -1,5 +1,5 @@
 begin;
-select plan(3);
+select plan(4);
 
 -- Setup: crear dos companies y dos admin_users en auth.users
 insert into auth.users (id, email, encrypted_password, email_confirmed_at)
@@ -37,7 +37,14 @@ select results_eq(
   'admin A only sees own admin_users row'
 );
 
--- Test 3: current_company_id() devuelve la empresa correcta
+-- Test 3: Admin A ve CERO filas de companies (default-deny, sin policy)
+select results_eq(
+  $$ select count(*)::int from public.companies $$,
+  $$ values (0) $$,
+  'companies table is invisible to authenticated users (default-deny)'
+);
+
+-- Test 4: current_company_id() devuelve la empresa correcta
 select is(
   public.current_company_id(),
   'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid,
