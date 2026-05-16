@@ -2,8 +2,9 @@ import { render, screen } from "@testing-library/react";
 import App from "./App";
 
 describe("App", () => {
-  it("renders the app title", () => {
+  it("renders the login route by default redirection target", () => {
+    window.history.pushState({}, "", "/login");
     render(<App />);
-    expect(screen.getByText("Checkin App")).toBeInTheDocument();
+    expect(screen.getByText("Login")).toBeInTheDocument();
   });
 });
