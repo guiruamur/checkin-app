@@ -93,11 +93,9 @@ export async function verifyWorkerRegistration(token: string): Promise<VerifyReg
 // --- listWorkers (admin) ---
 export async function listWorkers(): Promise<Worker[]> {
   // RLS filtra por company_id automáticamente vía JWT claim.
-  // database.ts no incluye 'workers' aún (regen pendiente al cierre de M2).
   const { data, error } = await supabase
     .from('workers')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .select('*' as any)
+    .select('*')
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as Worker[];
@@ -135,9 +133,7 @@ export async function approveWorker(workerId: string): Promise<ApproveWorkerResu
 export async function rejectWorker(workerId: string): Promise<void> {
   const { error } = await supabase
     .from('workers')
-    // database.ts no incluye 'workers' aún (regen al cierre de M2).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .update({ status: 'rejected', archived_at: new Date().toISOString() } as any)
+    .update({ status: 'rejected', archived_at: new Date().toISOString() })
     .eq('id', workerId);
   if (error) throw new Error(error.message);
 }
@@ -146,9 +142,7 @@ export async function rejectWorker(workerId: string): Promise<void> {
 export async function archiveWorker(workerId: string): Promise<void> {
   const { error } = await supabase
     .from('workers')
-    // database.ts no incluye 'workers' aún (regen al cierre de M2).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .update({ archived_at: new Date().toISOString() } as any)
+    .update({ archived_at: new Date().toISOString() })
     .eq('id', workerId);
   if (error) throw new Error(error.message);
 }
