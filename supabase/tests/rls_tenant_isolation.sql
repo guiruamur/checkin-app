@@ -21,7 +21,7 @@ insert into public.audit_log (company_id, actor_id, action, entity_type) values
 
 -- Simular sesión como Admin A
 set local role authenticated;
-set local "request.jwt.claims" to '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+set local "request.jwt.claims" to '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated","company_id":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}';
 
 -- Test 1: Admin A ve solo SU audit_log
 select results_eq(

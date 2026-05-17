@@ -3,10 +3,16 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";
 
+vi.mock("../lib/api/signup-admin", () => ({
+  signupAdminAndLogin: vi.fn(),
+}));
+
 vi.mock("../lib/supabase", () => ({
   supabase: {
-    auth: { signUp: vi.fn() },
-    rpc: vi.fn(),
+    auth: {
+      signUp: vi.fn(),
+      signInWithPassword: vi.fn(),
+    },
   },
 }));
 
@@ -21,7 +27,6 @@ describe("Signup page", () => {
     expect(screen.getByLabelText(/contraseña/i)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /crear cuenta/i }));
-    // Validación falla → debe mostrar al menos un mensaje de error
     const errors = await screen.findAllByText(/obligatorio/i);
     expect(errors.length).toBeGreaterThan(0);
   });

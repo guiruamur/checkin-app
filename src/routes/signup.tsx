@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { signupAdminAndLogin } from "../lib/api/signup-admin";
 
 const schema = z.object({
   companyName: z.string().min(1, "Obligatorio"),
@@ -13,15 +13,6 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
-
-function slugify(name: string) {
-  return name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -34,21 +25,20 @@ export default function Signup() {
 
   async function onSubmit(data: FormData) {
     setServerError(null);
-    const { data: signupData, error: signupError } = await supabase.auth.signUp({
+    const result = await signupAdminAndLogin({
       email: data.email,
       password: data.password,
+      company_name: data.companyName,
+      full_name: data.fullName,
     });
-    if (signupError || !signupData.user) {
-      setServerError(signupError?.message ?? "Error desconocido");
-      return;
-    }
-    const { error: rpcError } = await supabase.rpc("signup_create_company", {
-      p_company_name: data.companyName,
-      p_company_slug: slugify(data.companyName) + "-" + Date.now().toString(36),
-      p_full_name: data.fullName,
-    });
-    if (rpcError) {
-      setServerError(rpcError.message);
+    if (!result.ok) {
+      const message =
+        result.error === "email_taken"
+          ? "Este email ya está registrado"
+          : result.error === "validation"
+            ? "Datos inválidos. Revisa el formulario."
+            : result.message ?? "Error desconocido";
+      setServerError(message);
       return;
     }
     navigate("/admin");
