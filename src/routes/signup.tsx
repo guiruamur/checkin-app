@@ -8,7 +8,7 @@ import { supabase } from "../lib/supabase";
 const schema = z.object({
   companyName: z.string().min(1, "Obligatorio"),
   fullName: z.string().min(1, "Obligatorio"),
-  email: z.string().email("Email inválido"),
+  email: z.string().min(1, "Obligatorio").email("Email inválido"),
   password: z.string().min(8, "Mínimo 8 caracteres"),
 });
 
