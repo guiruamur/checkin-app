@@ -69,7 +69,7 @@ export type Database = {
       audit_log: {
         Row: {
           action: string
-          actor_id: string
+          actor_id: string | null
           company_id: string
           created_at: string
           diff: Json | null
@@ -79,7 +79,7 @@ export type Database = {
         }
         Insert: {
           action: string
-          actor_id: string
+          actor_id?: string | null
           company_id: string
           created_at?: string
           diff?: Json | null
@@ -89,7 +89,7 @@ export type Database = {
         }
         Update: {
           action?: string
-          actor_id?: string
+          actor_id?: string | null
           company_id?: string
           created_at?: string
           diff?: Json | null
@@ -140,15 +140,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      current_company_id: { Args: never; Returns: string }
-      signup_create_company: {
+      create_company_and_admin: {
         Args: {
           p_company_name: string
           p_company_slug: string
+          p_email: string
           p_full_name: string
+          p_user_id: string
         }
         Returns: string
       }
+      current_company_id: { Args: never; Returns: string }
+      custom_access_token_hook: { Args: { event: Json }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
@@ -284,3 +287,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
