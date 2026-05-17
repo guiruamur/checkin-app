@@ -1,70 +1,70 @@
--- Verifica que el RPC de signup (que la Edge Function emula a nivel HTTP)
--- crea company + admin_user atómicamente. Para reproducir el rollback,
--- forzamos un slug duplicado y comprobamos que no queda basura.
+-- Issue 2 del final review M2 Fase 0: el test viejo validaba el RPC M1
+-- signup_create_company que ya no existe. Reescrito para validar el RPC
+-- nuevo create_company_and_admin que es el que la Edge Function usa.
 --
--- Nota: este test cubre el RPC SQL `signup_create_company` que sigue
--- existiendo de M1. La Edge Function tiene rollback adicional sobre
--- auth.users; eso se cubre en el test Deno (index.test.ts) y en E2E.
+-- create_company_and_admin se ejecuta como service_role (Edge Function),
+-- no como authenticated. Por eso aquí simulamos esa llamada sin role
+-- switching ni JWT claims (el RPC no depende de auth.uid()).
 
 begin;
-select plan(4);
+select plan(5);
 
--- Setup: dos users en auth.users
+-- Setup: dos users en auth.users (la Edge Function los crea via
+-- auth.admin.createUser, aquí los insertamos directamente).
 insert into auth.users (id, email, encrypted_password, email_confirmed_at)
 values
   ('11111111-2222-3333-4444-555555555555', 'atomic1@test.com', '', now()),
   ('11111111-2222-3333-4444-666666666666', 'atomic2@test.com', '', now());
 
--- Simular sesión del primer user
-set local role authenticated;
-set local "request.jwt.claims" to
-  '{"sub":"11111111-2222-3333-4444-555555555555","role":"authenticated"}';
-
--- 1. signup feliz crea las dos rows
-select public.signup_create_company(
-  'Atomic Test Co',
-  'atomic-test-co-1',
-  'Atomic Tester'
+-- 1. Caso feliz: el RPC crea las dos rows atómicamente y devuelve company_id
+select isnt(
+  public.create_company_and_admin(
+    '11111111-2222-3333-4444-555555555555',
+    'atomic1@test.com',
+    'Atomic Test Co',
+    'atomic-test-co-1',
+    'Atomic Tester'
+  ),
+  NULL,
+  'happy path returns company_id (not null)'
 );
-
--- Volver a postgres para poder leer companies (RLS default-deny para authenticated)
-reset role;
 
 select results_eq(
   $$ select count(*)::int from public.companies where slug = 'atomic-test-co-1' $$,
   $$ values (1) $$,
-  'company created on happy path'
+  'company row created on happy path'
 );
 
 select results_eq(
-  $$ select count(*)::int from public.admin_users where id = '11111111-2222-3333-4444-555555555555' $$,
+  $$ select count(*)::int from public.admin_users
+     where id = '11111111-2222-3333-4444-555555555555' $$,
   $$ values (1) $$,
-  'admin_user created on happy path'
+  'admin_user row created on happy path'
 );
 
--- 2. signup duplicado para el mismo user debe fallar (ya tiene admin profile)
-set local role authenticated;
-set local "request.jwt.claims" to
-  '{"sub":"11111111-2222-3333-4444-555555555555","role":"authenticated"}';
-
+-- 2. Slug colision: el segundo intento con mismo slug debe lanzar Y NO crear
+-- ninguna fila. Esto valida la atomicidad — sin transacción, el INSERT en
+-- companies fallaría pero podría haber dejado basura si la implementación
+-- fuera secuencial.
 select throws_ok(
-  $$ select public.signup_create_company('Other Co', 'other-co', 'Tester') $$,
-  'user already has an admin profile',
-  'signup rejects existing admin profile'
-);
-
--- 3. signup con slug colision debe fallar y NO crear nada nuevo
-reset role;
-set local role authenticated;
-set local "request.jwt.claims" to
-  '{"sub":"11111111-2222-3333-4444-666666666666","role":"authenticated"}';
-
--- Intentar registrar con el slug que ya existe
-select throws_ok(
-  $$ select public.signup_create_company('Another Co', 'atomic-test-co-1', 'Other Tester') $$,
-  NULL,  -- aceptamos cualquier mensaje, lo importante es que lance
+  $$ select public.create_company_and_admin(
+      '11111111-2222-3333-4444-666666666666',
+      'atomic2@test.com',
+      'Another Co',
+      'atomic-test-co-1',
+      'Other Tester'
+    ) $$,
+  '23505',  -- unique_violation
   NULL,
-  'signup rejects duplicate slug'
+  'rpc rejects duplicate slug with unique_violation'
+);
+
+-- Verificar que el segundo intento NO creó admin_user para el user 2
+select results_eq(
+  $$ select count(*)::int from public.admin_users
+     where id = '11111111-2222-3333-4444-666666666666' $$,
+  $$ values (0) $$,
+  'failed signup leaves zero rows (atomicity proven)'
 );
 
 select * from finish();
