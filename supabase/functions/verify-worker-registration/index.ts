@@ -88,8 +88,13 @@ export default async function handler(
     .maybeSingle();
 
   if (!existing) {
-    // INSERT new worker (status defaults to 'pending')
-    await admin.from("workers").insert({
+    // INSERT new worker (status defaults to 'pending').
+    // Capturamos el error explicitamente: si una request concurrente ya
+    // insertó (race entre SELECT y INSERT), el INSERT lanza 23505 contra
+    // el UNIQUE parcial → trata como exito idempotente.
+    // Cualquier otro error es un fallo real que NO podemos silenciar:
+    // dejaría al candidato pensando que está registrado sin estarlo.
+    const { error: insertErr } = await admin.from("workers").insert({
       company_id: payload.company_id,
       email: payload.form_data.email,
       phone: payload.form_data.phone,
@@ -99,6 +104,19 @@ export default async function handler(
       languages: payload.form_data.languages,
       experience_summary: payload.form_data.experience_summary,
     });
+
+    if (insertErr) {
+      // 23505 = unique_violation (race condition contra el partial unique
+      // index). Otra request ya creó la fila entre nuestro SELECT y nuestro
+      // INSERT. Tratar como éxito idempotente.
+      if (insertErr.code !== "23505") {
+        console.error("[verify-worker-registration] insert failed:", insertErr);
+        return new Response(
+          JSON.stringify({ error: "registration_failed", message: insertErr.message }),
+          { status: 500, headers: { ...corsHeaders, "content-type": "application/json" } },
+        );
+      }
+    }
   }
 
   return new Response(
