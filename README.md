@@ -59,7 +59,10 @@ npx supabase db push
 
 # 2. Deployar (o redeployar) Edge Functions modificadas
 npx supabase functions deploy signup-admin --no-verify-jwt
-# ...una por cada function que toque la rama
+npx supabase functions deploy company-by-slug --no-verify-jwt
+npx supabase functions deploy request-worker-registration --no-verify-jwt
+npx supabase functions deploy verify-worker-registration --no-verify-jwt
+npx supabase functions deploy approve-worker
 ```
 
 Si la rama añade un Supabase Auth Hook nuevo, también hay que **registrarlo a mano en el dashboard cloud**:
@@ -70,8 +73,18 @@ Si la rama añade un Supabase Auth Hook nuevo, también hay que **registrarlo a 
 Hooks activos hoy:
 - `custom_access_token_hook` (inyecta `company_id` como claim JWT).
 
+Env vars necesarias en Supabase cloud (secrets):
+- `RESEND_API_KEY` (para envío de emails reales; sin esto las funciones que envían email los mockean a logs).
+- `SITE_URL` (URL pública del frontend para construir enlaces de verificación; ej. `https://checkin-app.guiruamur.workers.dev`).
+
+Setear con: `npx supabase secrets set NOMBRE=valor`.
+
 Edge Functions deployadas hoy:
 - `signup-admin` (signup atómico admin + company + admin_user).
+- `company-by-slug` (público, devuelve nombre de empresa por slug).
+- `request-worker-registration` (público, inicia double opt-in del candidato).
+- `verify-worker-registration` (público, confirma email y crea ficha worker).
+- `approve-worker` (admin, marca worker approved + envía email).
 
 ## Flujo de ramas
 
@@ -98,7 +111,8 @@ feature/* o feat/*  →  develop  →  main
 - **M1 — Fundación** ✅ (`v0.1.0-m1`): setup Vite/Supabase, schema con RLS, auth de admin, shell de panel
 - **M2 — Agenda y eventos** (en curso):
   - **Fase 0 — Prereqs** ✅ (`v0.2.0-m2-phase0`): JWT claim, audit trigger, signup atómico
-  - **Fase 1 — Workers / agenda** (pendiente)
+  - **Fase 1a — Workers backend** ✅ (`v0.3.0-m2-phase1a`): tabla workers, 4 Edge Functions, Resend integration, double opt-in
+  - **Fase 1b — Workers frontend** (pendiente)
   - **Fase 2 — Clients** (pendiente)
   - **Fase 3 — Events + QR** (pendiente)
 - **M3 — Check-in del trabajador**: flow `/e/:token`, JWT custom, check-in/out, geolocalización
