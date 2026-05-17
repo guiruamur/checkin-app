@@ -24,7 +24,7 @@ beforeEach(() => { vi.mocked(verifyWorkerRegistration).mockReset(); });
 describe('CandidatoVerificar', () => {
   it('shows missing-token message when token is absent', async () => {
     renderAt('/candidato/verificar');
-    expect(await screen.findByText(/enlace no válido/i)).toBeInTheDocument();
+    expect(await screen.findByText(/falta el token/i)).toBeInTheDocument();
   });
 
   it('shows success message with company name', async () => {

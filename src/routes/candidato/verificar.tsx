@@ -29,7 +29,7 @@ export default function CandidatoVerificar() {
     <div className="max-w-xl mx-auto p-8 text-center">
       {state.kind === 'loading' && <p>Verificando…</p>}
       {state.kind === 'missing_token' && (
-        <p className="text-red-600">Este enlace no válido o ha expirado.</p>
+        <p className="text-red-600">Falta el token de verificación en la URL.</p>
       )}
       {state.kind === 'success' && (
         <>
