@@ -432,6 +432,13 @@ entrypoint = "./functions/company-by-slug/index.ts"
 [functions.request-worker-registration]
 enabled = true
 verify_jwt = false
+import_map = "./functions/request-worker-registration/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/request-worker-registration/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML, CSS, JS or any other files, you can add them here.
+# static_files = [ "./functions/request-worker-registration/*.html" ]
 
 [functions.verify-worker-registration]
 enabled = true
