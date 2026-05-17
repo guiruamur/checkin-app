@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { z } from "https://esm.sh/zod@3.23.8";
 import { corsHeaders } from "../_shared/cors.ts";
 
@@ -22,7 +22,13 @@ function slugify(name: string) {
   );
 }
 
-export default async function handler(req: Request): Promise<Response> {
+// El handler acepta un cliente admin opcional como segundo argumento.
+// En producción (Deno.serve abajo) se crea desde env vars con service_role.
+// En tests se inyecta un mock para ejercitar la ruta de rollback sin BD real.
+export default async function handler(
+  req: Request,
+  adminOverride?: SupabaseClient,
+): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -48,12 +54,13 @@ export default async function handler(req: Request): Promise<Response> {
     );
   }
 
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  const admin =
+    adminOverride ??
+    createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { autoRefreshToken: false, persistSession: false } },
+    );
 
   // 2. Crear auth.users
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
@@ -75,37 +82,34 @@ export default async function handler(req: Request): Promise<Response> {
   const userId = created.user.id;
   const slug = slugify(body.company_name);
 
-  // 3. Crear company + admin_user atómicamente. Si falla, borrar el auth.user.
-  const { data: companyRow, error: companyErr } = await admin
-    .from("companies")
-    .insert({ name: body.company_name, slug })
-    .select("id")
-    .single();
+  // 3. Crear company + admin_user via RPC atómico (una sola transacción).
+  // Si falla, basta con borrar el auth.user (no hay company ni admin_user
+  // colgando porque el RPC hace rollback automático en caso de error).
+  const { data: companyId, error: rpcErr } = await admin.rpc(
+    "create_company_and_admin",
+    {
+      p_user_id: userId,
+      p_email: body.email,
+      p_company_name: body.company_name,
+      p_company_slug: slug,
+      p_full_name: body.full_name,
+    },
+  );
 
-  if (companyErr || !companyRow) {
+  if (rpcErr || !companyId) {
     await admin.auth.admin.deleteUser(userId);
-    const code = companyErr?.message?.toLowerCase().includes("slug")
-      ? "slug_collision"
-      : "company_insert_failed";
+    // Mapear errores comunes a códigos tipados que el frontend ya entiende.
+    const msg = rpcErr?.message?.toLowerCase() ?? "";
+    let code: string;
+    if (msg.includes("slug")) {
+      code = "slug_collision";
+    } else if (msg.includes("admin_users_pkey") || msg.includes("admin_users")) {
+      code = "admin_insert_failed";
+    } else {
+      code = "company_insert_failed";
+    }
     return new Response(
-      JSON.stringify({ error: code, message: companyErr?.message }),
-      { status: 500, headers: { ...corsHeaders, "content-type": "application/json" } },
-    );
-  }
-
-  const { error: adminErr } = await admin.from("admin_users").insert({
-    id: userId,
-    company_id: companyRow.id,
-    email: body.email,
-    full_name: body.full_name,
-  });
-
-  if (adminErr) {
-    // Rollback: borrar la company creada + auth.user.
-    await admin.from("companies").delete().eq("id", companyRow.id);
-    await admin.auth.admin.deleteUser(userId);
-    return new Response(
-      JSON.stringify({ error: "admin_insert_failed", message: adminErr.message }),
+      JSON.stringify({ error: code, message: rpcErr?.message }),
       { status: 500, headers: { ...corsHeaders, "content-type": "application/json" } },
     );
   }
@@ -114,13 +118,16 @@ export default async function handler(req: Request): Promise<Response> {
     JSON.stringify({
       ok: true,
       user_id: userId,
-      company_id: companyRow.id,
+      company_id: companyId,
     }),
     { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } },
   );
 }
 
 // Solo arrancamos serve cuando este módulo es el entrypoint (no en tests).
+// Envolvemos handler en un wrapper de 1-arg para satisfacer la signatura
+// que espera Deno.serve (el handler tiene un segundo arg opcional para
+// inyectar el cliente admin en tests).
 if (import.meta.main) {
-  Deno.serve(handler);
+  Deno.serve((req) => handler(req));
 }
