@@ -17,7 +17,9 @@ const bodySchema = z.object({
     "portugués", "gallego", "euskera", "árabe", "chino", "ruso", "otros",
   ])).max(8),
   experience_summary: z.string().max(500).optional(),
-  website: z.string().length(0),  // honeypot
+  // Honeypot: optional, no rechazamos por Zod. El chequeo va tras parseo.
+  // Si bot rellena → 200 silencioso (no le damos pista que detectamos).
+  website: z.string().optional(),
 });
 
 export default async function handler(
@@ -48,8 +50,11 @@ export default async function handler(
     );
   }
 
-  // Honeypot check is enforced by Zod schema (website must be length 0).
-  // If Zod passed, website is empty.
+  // Honeypot: si llega con contenido, asumimos bot y devolvemos 200 silencioso.
+  // No registramos ni mandamos email. El bot cree que ha tenido éxito y se va.
+  if (body.website && body.website.length > 0) {
+    return new Response(null, { status: 200, headers: corsHeaders });
+  }
 
   const admin = adminOverride ?? createClient(
     Deno.env.get("SUPABASE_URL")!,

@@ -18,6 +18,8 @@ type FakeAdminState = {
   worker?: { id: string; email: string; first_name: string; status: string; company_id: string };
   tenantFilterUsed?: string;  // captura el company_id por el que se filtró
   updated: boolean;
+  lastUpdate?: Record<string, unknown>;  // captura el changeset del UPDATE
+  sendEmailThrows?: boolean;  // fuerza fetch a Resend a fallar
 };
 
 // deno-lint-ignore no-explicit-any
@@ -58,8 +60,9 @@ function buildAdmin(state: FakeAdminState): any {
       };
       return {
         select: queryChain.select.bind(queryChain),
-        update(_changes: Record<string, unknown>) {
+        update(changes: Record<string, unknown>) {
           state.updated = true;
+          state.lastUpdate = changes;
           return {
             eq(_col: string, _val: string) {
               return Promise.resolve({ data: null, error: null });
@@ -144,4 +147,41 @@ Deno.test("200 ok when pending worker approved (email mocked sin RESEND_API_KEY)
   const body = await res.json();
   assertEquals(body.ok, true);
   assertEquals(state.updated, true, "UPDATE called");
+  // Issue 3: approved_by debe ser el sub del JWT (admin-1, ver makeAdminJwt)
+  assertEquals(state.lastUpdate?.approved_by, "admin-1", "approved_by populated from JWT sub");
+  assertEquals(state.lastUpdate?.status, "approved");
+});
+
+Deno.test("200 ok with email_warning when sendEmail throws", async () => {
+  // Issue 6 fix: cubrir el path donde UPDATE OK pero el envío de email falla.
+  // El handler debe devolver 200 (la aprobación está hecha) con email_warning=true.
+  Deno.env.set("RESEND_API_KEY", "re_fake_test_key");
+
+  const state: FakeAdminState = {
+    worker: { id: "11111111-1111-1111-1111-111111111111", email: "w@x.com", first_name: "W", status: "pending", company_id: "co-a" },
+    updated: false,
+  };
+
+  // Stub fetch para que api.resend.com falle con 503
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => Promise.resolve(
+    new Response(JSON.stringify({ message: "Resend down" }), { status: 503 })
+  )) as typeof fetch;
+
+  try {
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json", "authorization": `Bearer ${ADMIN_CO_A}` },
+      body: JSON.stringify({ worker_id: "11111111-1111-1111-1111-111111111111" }),
+    });
+    const res = await handler(req, buildAdmin(state));
+    assertEquals(res.status, 200, "approval succeeds even if email send fails");
+    const body = await res.json();
+    assertEquals(body.ok, true);
+    assertEquals(body.email_warning, true, "email_warning flag set when Resend fails");
+    assertEquals(state.updated, true, "UPDATE applied (approval is the primary side effect)");
+  } finally {
+    globalThis.fetch = originalFetch;
+    Deno.env.delete("RESEND_API_KEY");
+  }
 });

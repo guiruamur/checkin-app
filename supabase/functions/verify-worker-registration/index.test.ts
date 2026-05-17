@@ -10,6 +10,7 @@ const { signVerificationToken } = await import("../_shared/jwt.ts");
 type FakeAdminState = {
   workerExistsFor?: string;  // company_id where worker exists
   inserted: Array<Record<string, unknown>>;
+  insertError?: { code: string; message: string };  // forzar error en el INSERT
 };
 
 // deno-lint-ignore no-explicit-any
@@ -48,6 +49,9 @@ function buildAdmin(state: FakeAdminState): any {
           };
         },
         insert(row: Record<string, unknown>) {
+          if (state.insertError) {
+            return Promise.resolve({ data: null, error: state.insertError });
+          }
           state.inserted.push(row);
           return Promise.resolve({ data: null, error: null });
         },
@@ -130,4 +134,44 @@ Deno.test("200 idempotent when worker already exists (no insert)", async () => {
   const res = await handler(req, buildAdmin(state));
   assertEquals(res.status, 200);
   assertEquals(state.inserted.length, 0, "should not insert when worker already exists");
+});
+
+Deno.test("200 idempotent when INSERT hits unique_violation race (23505)", async () => {
+  const state: FakeAdminState = {
+    inserted: [],
+    insertError: { code: "23505", message: "duplicate key value violates unique constraint workers_company_email_unique" },
+  };
+  const token = await signVerificationToken(
+    { form_data: VALID_FORM_DATA, company_id: "co-123" },
+    300,
+  );
+  const req = new Request("http://localhost/x", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  const res = await handler(req, buildAdmin(state));
+  assertEquals(res.status, 200, "unique_violation race condition is silently treated as success");
+  const body = await res.json();
+  assertEquals(body.company_name, "Test Co");
+});
+
+Deno.test("500 when INSERT fails with non-race error", async () => {
+  const state: FakeAdminState = {
+    inserted: [],
+    insertError: { code: "23502", message: "null value in column violates not-null constraint" },
+  };
+  const token = await signVerificationToken(
+    { form_data: VALID_FORM_DATA, company_id: "co-123" },
+    300,
+  );
+  const req = new Request("http://localhost/x", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  const res = await handler(req, buildAdmin(state));
+  assertEquals(res.status, 500, "non-race insert errors surface as 500");
+  const body = await res.json();
+  assertEquals(body.error, "registration_failed");
 });

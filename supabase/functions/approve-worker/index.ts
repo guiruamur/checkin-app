@@ -11,9 +11,11 @@ const bodySchema = z.object({
 /**
  * Decodifica el payload del JWT del Authorization header sin verificar firma.
  * Supabase ya validó el JWT con verify_jwt=true antes de invocar la function.
- * Aquí solo extraemos el claim company_id que el Auth Hook inyectó.
+ * Aquí solo extraemos los claims que necesitamos:
+ * - company_id (inyectado por el Auth Hook custom_access_token_hook)
+ * - sub (user_id del admin, para auditoría approved_by)
  */
-function getAdminCompanyId(req: Request): string | null {
+function getAdminClaims(req: Request): { companyId: string; userId: string } | null {
   const auth = req.headers.get("Authorization") ?? "";
   const token = auth.replace(/^Bearer /, "").trim();
   if (!token) return null;
@@ -22,8 +24,12 @@ function getAdminCompanyId(req: Request): string | null {
   try {
     const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
     const pad = "=".repeat((4 - (b64.length % 4)) % 4);
-    const payload = JSON.parse(atob(b64 + pad)) as { company_id?: string };
-    return payload.company_id ?? null;
+    const payload = JSON.parse(atob(b64 + pad)) as {
+      company_id?: string;
+      sub?: string;
+    };
+    if (!payload.company_id || !payload.sub) return null;
+    return { companyId: payload.company_id, userId: payload.sub };
   } catch {
     return null;
   }
@@ -44,15 +50,18 @@ export default async function handler(
     );
   }
 
-  // Extraer company_id del JWT del admin (Supabase ya verificó la firma).
-  // Este claim viene del Auth Hook custom_access_token_hook configurado en Fase 0.
-  const adminCompanyId = getAdminCompanyId(req);
-  if (!adminCompanyId) {
+  // Extraer claims del JWT del admin (Supabase ya verificó la firma).
+  // company_id viene del Auth Hook custom_access_token_hook (Fase 0).
+  // sub es el user_id, lo usamos como approved_by para auditoría.
+  const claims = getAdminClaims(req);
+  if (!claims) {
     return new Response(
       JSON.stringify({ error: "no_company_claim" }),
       { status: 401, headers: { ...corsHeaders, "content-type": "application/json" } },
     );
   }
+  const adminCompanyId = claims.companyId;
+  const adminUserId = claims.userId;
 
   let body: z.infer<typeof bodySchema>;
   try {
@@ -98,11 +107,13 @@ export default async function handler(
 
   // UPDATE filtrado por id. La barrera anti cross-tenant ya fue aplicada en el
   // SELECT anterior (que filtró explícitamente por company_id = adminCompanyId).
+  // approved_by guarda el admin_user que aprobó (auditoría).
   const { error: updateErr } = await admin
     .from("workers")
     .update({
       status: "approved",
       approved_at: new Date().toISOString(),
+      approved_by: adminUserId,
     })
     .eq("id", body.worker_id);
 

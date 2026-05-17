@@ -74,15 +74,19 @@ Deno.test("404 when company slug does not exist", async () => {
   assertEquals(body.error, "company_not_found");
 });
 
-Deno.test("400 when honeypot website is filled (zod rejects)", async () => {
+Deno.test("200 silent when honeypot website is filled (bot detected, no info leak)", async () => {
+  // Issue 4 fix: el spec dice 200 sin body, NO 400. Devolver 400 le diría al
+  // bot que detectamos su intento; 200 silencioso le hace creer que tuvo
+  // éxito y se va sin volver a intentar variaciones.
   const req = new Request("http://localhost/x", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ ...VALID_BODY, website: "https://spambot.example" }),
   });
+  // buildAdmin({}) sin slugs: si el handler intentara buscar la company,
+  // devolvería 404. Que devuelva 200 confirma que salió antes (honeypot).
   const res = await handler(req, buildAdmin({}));
-  assertEquals(res.status, 400);
-  // honeypot violation caught as validation error (website must be length 0)
+  assertEquals(res.status, 200, "honeypot bot gets 200 with no body — no DB lookup, no email sent");
 });
 
 Deno.test("200 when valid body and company found (email mocked, no RESEND_API_KEY)", async () => {
