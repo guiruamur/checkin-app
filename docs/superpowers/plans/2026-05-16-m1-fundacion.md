@@ -485,8 +485,6 @@ alter table public.companies enable row level security;
 -- política mínima: nadie puede SELECT/INSERT/UPDATE/DELETE desde el cliente.
 -- las operaciones sobre companies se hacen desde el flujo de signup (Edge Function o RPC con security definer).
 
--- index de búsqueda por slug (para el formulario público /candidato/registro)
-create index companies_slug_idx on public.companies (slug);
 ```
 
 - [ ] **Step 2: Aplicar la migración**
