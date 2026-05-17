@@ -86,6 +86,22 @@ Edge Functions deployadas hoy:
 - `verify-worker-registration` (público, confirma email y crea ficha worker).
 - `approve-worker` (admin, marca worker approved + envía email).
 
+### ⚠️ White-label sender: NO setear `companies.email_sender_verified_at` a mano
+
+Las columnas `email_sender_*` en `companies` están pensadas para que un día (M3+) haya una UI de configuración que verifique el dominio del cliente en Resend y rellene `email_sender_verified_at` solo cuando Resend confirme la verificación DNS.
+
+Mientras esa UI no exista, **dejar estas columnas NULL**. Si alguien las rellena manualmente (SQL directo, admin DB UI) sin que Resend haya verificado el dominio:
+- `request-worker-registration` y `approve-worker` intentarán mandar emails desde el dominio no verificado.
+- Resend responderá 4xx, los emails NO llegarán al destinatario.
+- En `approve-worker` el fallo se marca en el response con `email_warning: true` pero la aprobación sigue adelante.
+- En `request-worker-registration` el fallo devuelve 500 y rompe el flujo del candidato.
+
+El comment del SQL en `email_sender_verified_at` documenta esto a nivel BD.
+
+### Tests cross-tenant — cobertura actual
+
+Las pgTAP cubren el aislamiento RLS para queries directas. Para las Edge Functions admin-only (`approve-worker`), la barrera anti cross-tenant vive en el código (filtro explícito por `company_id` del JWT claim) y se testa solo a nivel mock (unit) y por smoke manual contra cloud. Una vez se monte CI con local Supabase, conviene añadir test de integración semi-real que dispare el handler con dos tenants y compruebe el rechazo end-to-end.
+
 ## Flujo de ramas
 
 ```
