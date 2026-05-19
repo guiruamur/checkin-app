@@ -1,8 +1,12 @@
 import { create, verify } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
 
 async function getKey(): Promise<CryptoKey> {
-  const secret = Deno.env.get("SUPABASE_JWT_SECRET");
-  if (!secret) throw new Error("missing_jwt_secret");
+  // WORKER_TOKEN_SECRET firma/verifica los JWT del flujo de inscripción
+  // del candidato. Es independiente del JWT de Supabase Auth.
+  // El namespace SUPABASE_* está reservado por Supabase y bloquea custom
+  // secrets, así que no podemos reutilizar SUPABASE_JWT_SECRET.
+  const secret = Deno.env.get("WORKER_TOKEN_SECRET");
+  if (!secret) throw new Error("missing_worker_token_secret");
   return await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(secret),

@@ -2,7 +2,7 @@ import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 Deno.env.set("SUPABASE_URL", "http://stub");
 Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "stub-key");
-Deno.env.set("SUPABASE_JWT_SECRET", "test-secret-at-least-32-chars-long-aaaaaa");
+Deno.env.set("WORKER_TOKEN_SECRET", "test-secret-at-least-32-chars-long-aaaaaa");
 Deno.env.set("SITE_URL", "http://localhost:5173");
 
 // Stub admin con company lookup

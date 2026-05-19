@@ -135,6 +135,72 @@ export type Database = {
         }
         Relationships: []
       }
+      workers: {
+        Row: {
+          id: string
+          company_id: string
+          email: string
+          phone: string
+          first_name: string
+          last_name: string
+          postal_code: string | null
+          languages: string[]
+          experience_summary: string | null
+          status: string
+          approved_at: string | null
+          approved_by: string | null
+          archived_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          email: string
+          phone: string
+          first_name: string
+          last_name: string
+          postal_code?: string | null
+          languages?: string[]
+          experience_summary?: string | null
+          status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          archived_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          email?: string
+          phone?: string
+          first_name?: string
+          last_name?: string
+          postal_code?: string | null
+          languages?: string[]
+          experience_summary?: string | null
+          status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          archived_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workers_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
