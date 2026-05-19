@@ -1,7 +1,7 @@
 import { assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 // Set a deterministic secret for tests BEFORE importing the helper
-Deno.env.set("SUPABASE_JWT_SECRET", "test-secret-at-least-32-chars-long-aaaaaa");
+Deno.env.set("WORKER_TOKEN_SECRET", "test-secret-at-least-32-chars-long-aaaaaa");
 
 const { signVerificationToken, verifyVerificationToken } = await import("./jwt.ts");
 
