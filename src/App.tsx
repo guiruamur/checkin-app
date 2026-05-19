@@ -14,11 +14,17 @@ import AdminClientes from "./routes/admin/clientes";
 import AdminEventos from "./routes/admin/eventos";
 import AdminReportes from "./routes/admin/reportes";
 import AdminAuditoria from "./routes/admin/auditoria";
+import CandidatoRegistro from "./routes/candidato/registro";
+import CandidatoRegistroEnviado from "./routes/candidato/registro-enviado";
+import CandidatoVerificar from "./routes/candidato/verificar";
 
 export const routes: RouteObject[] = [
   { path: "/", element: <Navigate to="/login" replace /> },
   { path: "/signup", element: <Signup /> },
   { path: "/login", element: <Login /> },
+  { path: "/candidato/registro", element: <CandidatoRegistro /> },
+  { path: "/candidato/registro-enviado", element: <CandidatoRegistroEnviado /> },
+  { path: "/candidato/verificar", element: <CandidatoVerificar /> },
   {
     path: "/admin",
     element: (
