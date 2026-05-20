@@ -12,6 +12,7 @@ import AdminHome from "./routes/admin/home";
 import AdminAgenda from "./routes/admin/agenda";
 import AdminClientes from "./routes/admin/clientes";
 import AdminEventos from "./routes/admin/eventos";
+import AdminEventoDetalle from "./routes/admin/evento-detalle";
 import AdminReportes from "./routes/admin/reportes";
 import AdminAuditoria from "./routes/admin/auditoria";
 import CandidatoRegistro from "./routes/candidato/registro";
@@ -37,6 +38,7 @@ export const routes: RouteObject[] = [
       { path: "agenda", element: <AdminAgenda /> },
       { path: "clientes", element: <AdminClientes /> },
       { path: "eventos", element: <AdminEventos /> },
+      { path: "eventos/:id", element: <AdminEventoDetalle /> },
       { path: "reportes", element: <AdminReportes /> },
       { path: "auditoria", element: <AdminAuditoria /> },
     ],
