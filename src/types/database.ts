@@ -242,6 +242,108 @@ export type Database = {
           },
         ]
       }
+      events: {
+        Row: {
+          id: string
+          company_id: string
+          client_id: string
+          name: string
+          address: string
+          organizer_email: string
+          access_token: string
+          starts_at: string
+          ends_at: string
+          last_confirmation_sent_at: string | null
+          created_at: string
+          archived_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id?: string
+          client_id: string
+          name: string
+          address: string
+          organizer_email: string
+          access_token?: string
+          starts_at: string
+          ends_at: string
+          last_confirmation_sent_at?: string | null
+          created_at?: string
+          archived_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          client_id?: string
+          name?: string
+          address?: string
+          organizer_email?: string
+          access_token?: string
+          starts_at?: string
+          ends_at?: string
+          last_confirmation_sent_at?: string | null
+          created_at?: string
+          archived_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_assignments: {
+        Row: {
+          id: string
+          event_id: string
+          worker_id: string
+          scheduled_start: string
+          scheduled_end: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          event_id: string
+          worker_id: string
+          scheduled_start: string
+          scheduled_end: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          event_id?: string
+          worker_id?: string
+          scheduled_start?: string
+          scheduled_end?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_assignments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_assignments_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
