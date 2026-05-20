@@ -201,6 +201,47 @@ export type Database = {
           },
         ]
       }
+      clients: {
+        Row: {
+          id: string
+          company_id: string
+          name: string
+          contact_email: string
+          phone: string | null
+          notes: string | null
+          created_at: string
+          archived_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id?: string
+          name: string
+          contact_email: string
+          phone?: string | null
+          notes?: string | null
+          created_at?: string
+          archived_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          name?: string
+          contact_email?: string
+          phone?: string | null
+          notes?: string | null
+          created_at?: string
+          archived_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
